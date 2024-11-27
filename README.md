@@ -1,23 +1,22 @@
-# Journa
+# TimeBlocks
 
-Journa is a decentralized collaborative productivity journal built on the Stacks blockchain. It empowers users to track their productivity, set goals, and build habits in a transparent and secure environment.
+**TimeBlocks** is a decentralized productivity app built on the Stacks blockchain. It allows users to organize their daily tasks into time blocks, track productivity, and store their progress immutably on the blockchain.
 
-## Description
+## Features
 
-Journa leverages blockchain technology to create a unique productivity ecosystem where users can:
-- Write and share daily productivity logs
-- Collaborate on journal entries
-- Set and track personal and shared goals
-- Build and maintain habits with streak tracking
-- Share productivity tips anonymously with the community
+- **Task Scheduling**: Create and manage tasks within specific time blocks.
+- **Immutable Logs**: Save and retrieve your time blocks securely on the Stacks blockchain.
+- **Blockchain Integration**: All data is stored using Clarity smart contracts.
+- **Simple and Private**: Users authenticate via Stacks wallet, ensuring secure and decentralized access.
 
-All data is stored on the Stacks blockchain, ensuring transparency, immutability, and user ownership of their productivity data.
+---
 
-## Key Features
+## How It Works
 
-- **Decentralized Authentication**: Users log in with their Stacks wallet for secure, password-less authentication.
-- **Collaborative Journaling**: Co-write and share productivity logs with selected users.
-- **Goal Setting and Tracking**: Create, monitor, and achieve personal or collaborative goals.
-- **Habit Streaks**: Build consistent habits by tracking daily completions and maintaining streaks.
-- **Anonymous Tip Sharing**: Share and receive productivity tips within the community while maintaining privacy.
-- **Blockchain-based Data Storage**: All entries and user data are securely stored on the Stacks blockchain.
+1. **Connect Wallet**: Log in using your Stacks wallet.
+2. **Create Time Blocks**:
+   - Define a task.
+   - Assign a start and end time.
+   - Submit the time block.
+3. **View Tasks**: Retrieve and view all your scheduled tasks.
+4. **Immutable Storage**: Tasks are securely saved on the blockchain, ensuring they can’t be tampered with.

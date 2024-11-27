@@ -1,98 +1,147 @@
-;; Define the journals map
-(define-map journals
-  principal
-  (list 100 (tuple (entry (string-ascii 100)) (mood (string-ascii 10)) (tags (list 10 (string-ascii 30)))))
+;; Journa - A decentralized collaborative productivity journal
+
+;; Constants
+(define-constant contract-owner tx-sender)
+(define-constant err-owner-only (err u100))
+(define-constant err-not-found (err u101))
+(define-constant err-unauthorized (err u102))
+(define-constant err-invalid-input (err u103))
+
+;; Data vars
+(define-data-var next-goal-id uint u0)
+(define-data-var next-habit-id uint u0)
+
+;; Maps
+(define-map goals
+  uint
+  {
+    owner: principal,
+    title: (string-ascii 100),
+    description: (string-utf8 500),
+    target: uint,
+    deadline: uint,
+    progress: uint
+  }
 )
 
-;; Define the tags map
-(define-map tags
-  (string-ascii 30)
-  (list 100 principal)
+(define-map habits
+  uint
+  {
+    owner: principal,
+    title: (string-ascii 100),
+    description: (string-utf8 500),
+    streak: uint,
+    last-check-in: uint
+  }
 )
 
-;; Store a new journal entry for a user
-(define-public (add-entry (entry (string-ascii 100)) (mood (string-ascii 10)) (entry-tags (list 10 (string-ascii 30))))
+;; Helper function to check if a string is empty
+(define-private (is-empty (str (string-ascii 100)))
+  (is-eq str "")
+)
+
+;; Create a goal function
+(define-public (create-goal (title-input (string-ascii 100)) 
+                            (description-input (string-utf8 500)) 
+                            (target-input uint) 
+                            (deadline-input uint))
   (let
     (
-      (user tx-sender)
-      (new-entry (tuple (entry entry) (mood mood) (tags entry-tags)))
-      (current-entries (default-to (list) (map-get? journals user)))
+      (goal-id (var-get next-goal-id))
     )
-    (ok (map-set journals user (append current-entries new-entry)))
+    (asserts! (and (not (is-empty title-input))
+                   (not (is-empty description-input))
+                   (> target-input u0)
+                   (> deadline-input u0)) err-invalid-input)
+    (map-set goals goal-id {
+      owner: tx-sender,
+      title: title-input,
+      description: description-input,
+      target: target-input,
+      deadline: deadline-input,
+      progress: u0
+    })
+    (var-set next-goal-id (+ goal-id u1))
+    (ok goal-id)
   )
 )
 
-;; Get all journal entries for a user
-(define-read-only (get-entries (user principal))
-  (ok (default-to (list) (map-get? journals user)))
+;; Update goal progress function
+(define-public (update-goal-progress (goal-id uint) (new-progress uint))
+  (match (map-get? goals goal-id)
+    goal (begin
+      (asserts! (is-eq (get owner goal) tx-sender) err-unauthorized)
+      (ok (map-set goals goal-id (merge goal {progress: new-progress})))
+    )
+    err-not-found
+  )
 )
 
-;; Add a tag to the global tags list
-(define-public (add-tag (tag (string-ascii 30)))
+;; Create a habit function
+(define-public (create-habit (title-input (string-ascii 100)) 
+                             (description-input (string-utf8 500)))
   (let
     (
-      (user tx-sender)
-      (current-users (default-to (list) (map-get? tags tag)))
+      (habit-id (var-get next-habit-id))
     )
-    (ok (map-set tags tag (append current-users user)))
+    (asserts! (and (not (is-empty title-input))
+                   (not (is-empty description-input))) err-invalid-input)
+    (map-set habits habit-id {
+      owner: tx-sender,
+      title: title-input,
+      description: description-input,
+      streak: u0,
+      last-check-in: u0
+    })
+    (var-set next-habit-id (+ habit-id u1))
+    (ok habit-id)
   )
 )
 
-;; Get all users associated with a tag
-(define-read-only (get-users-by-tag (tag (string-ascii 30)))
-  (ok (default-to (list) (map-get? tags tag)))
-)
-
-;; Helper function to parse the mood and return a numerical score
-(define-private (parse-mood (mood (string-ascii 10)))
-  (match mood
-    "happy" 1
-    "neutral" 0
-    "sad" -1
-    "stressed" -2
-    -3
+;; Check-in habit function
+(define-public (check-in-habit (habit-id uint))
+  (match (map-get? habits habit-id)
+    habit (begin
+      (asserts! (is-eq (get owner habit) tx-sender) err-unauthorized)
+      (let
+        (
+          (new-streak (+ (get streak habit) u1))
+        )
+        (ok (map-set habits habit-id (merge habit {
+          streak: new-streak,
+          last-check-in: burn-block-height
+        })))
+      )
+    )
+    err-not-found
   )
 )
 
-;; Calculate the average mood score
-(define-private (calculate-average-mood (mood-scores (list 100 int)))
-  (let
-    (
-      (sum (fold + 0 mood-scores))
-      (count (len mood-scores))
+;; Retrieve the goal by ID
+(define-read-only (get-goal (goal-id uint))
+  (match (map-get? goals goal-id)
+    goal (if (is-eq (get owner goal) tx-sender)
+      (ok goal)
+      err-unauthorized
     )
-    (if (is-eq count u0)
-      0
-      (/ sum count)
-    )
+    err-not-found
   )
 )
 
-;; Mood tracking: Get the average mood for a user
-(define-read-only (get-average-mood (user principal))
-  (let
-    (
-      (entries (default-to (list) (map-get? journals user)))
-      (mood-scores (map parse-mood (map get mood entries)))
+;; Retrieve the habit by ID
+(define-read-only (get-habit (habit-id uint))
+  (match (map-get? habits habit-id)
+    habit (if (is-eq (get owner habit) tx-sender)
+      (ok habit)
+      err-unauthorized
     )
-    (ok (calculate-average-mood mood-scores))
+    err-not-found
   )
 )
 
-;; Get the number of entries for a user
-(define-read-only (get-entry-count (user principal))
-  (ok (len (default-to (list) (map-get? journals user))))
-)
-
-;; Get all journal entries for a user with pagination (limit)
-(define-read-only (get-entries-limited (user principal) (limit uint))
-  (let
-    (
-      (entries (default-to (list) (map-get? journals user)))
-      (entries-count (len entries))
-      (actual-limit (if (> limit entries-count) entries-count limit))
-    )
-    (ok (slice entries u0 actual-limit))
-  )
+;; Initialize contract
+(begin
+  (var-set next-goal-id u0)
+  (var-set next-habit-id u0)
 )
 
