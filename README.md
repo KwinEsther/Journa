@@ -1,22 +1,19 @@
-# TimeBlocks
+# Journa  
 
-**TimeBlocks** is a decentralized productivity app built on the Stacks blockchain. It allows users to organize their daily tasks into time blocks, track productivity, and store their progress immutably on the blockchain.
-
-## Features
-
-- **Task Scheduling**: Create and manage tasks within specific time blocks.
-- **Immutable Logs**: Save and retrieve your time blocks securely on the Stacks blockchain.
-- **Blockchain Integration**: All data is stored using Clarity smart contracts.
-- **Simple and Private**: Users authenticate via Stacks wallet, ensuring secure and decentralized access.
+**Journa** is a decentralized Collaborative Productivity Journal app built on the Stacks blockchain using Clarity. It allows users to anonymously log their daily productivity achievements or share tips with a community.  
 
 ---
 
-## How It Works
+## Features  
 
-1. **Connect Wallet**: Log in using your Stacks wallet.
-2. **Create Time Blocks**:
-   - Define a task.
-   - Assign a start and end time.
-   - Submit the time block.
-3. **View Tasks**: Retrieve and view all your scheduled tasks.
-4. **Immutable Storage**: Tasks are securely saved on the blockchain, ensuring they can’t be tampered with.
+- **Anonymous Journaling**: Write and save daily productivity logs without revealing your identity.  
+- **Community Tips**: Share productivity tips and view advice from others in a public feed.  
+- **Immutable Records**: All logs and tips are stored securely on the Stacks blockchain.  
+
+---
+
+## How It Works  
+
+1. **Connect Wallet**: Users log in with their Stacks wallet to access the app.  
+2. **Write Logs/Tips**: Add a daily log or share a productivity tip anonymously.  
+3. **View Feed**: Browse the public feed to learn from the community.
