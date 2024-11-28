@@ -60,4 +60,3 @@
             current-max
         )
     )
-)
