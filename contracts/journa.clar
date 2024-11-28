@@ -1,147 +1,63 @@
-;; Journa - A decentralized collaborative productivity journal
+;; Define the list of fruits
+(define-data-var fruits (list 10 (string-ascii 20)) (list "apple" "banana" "cherry" "date" "elderberry"))
 
-;; Constants
-(define-constant contract-owner tx-sender)
-(define-constant err-owner-only (err u100))
-(define-constant err-not-found (err u101))
-(define-constant err-unauthorized (err u102))
-(define-constant err-invalid-input (err u103))
+;; Define a map to store votes for each fruit
+(define-map fruit-votes {fruit: (string-ascii 20)} {votes: uint})
 
-;; Data vars
-(define-data-var next-goal-id uint u0)
-(define-data-var next-habit-id uint u0)
+;; Define a constant for the maximum allowed votes per user
+(define-constant MAX_VOTES_PER_USER u5)
 
-;; Maps
-(define-map goals
-  uint
-  {
-    owner: principal,
-    title: (string-ascii 100),
-    description: (string-utf8 500),
-    target: uint,
-    deadline: uint,
-    progress: uint
-  }
-)
+;; Define a map to track votes per user
+(define-map user-votes {user: principal} {vote-count: uint})
 
-(define-map habits
-  uint
-  {
-    owner: principal,
-    title: (string-ascii 100),
-    description: (string-utf8 500),
-    streak: uint,
-    last-check-in: uint
-  }
-)
-
-;; Helper function to check if a string is empty
-(define-private (is-empty (str (string-ascii 100)))
-  (is-eq str "")
-)
-
-;; Create a goal function
-(define-public (create-goal (title-input (string-ascii 100)) 
-                            (description-input (string-utf8 500)) 
-                            (target-input uint) 
-                            (deadline-input uint))
-  (let
-    (
-      (goal-id (var-get next-goal-id))
+;; Function to vote for a fruit
+(define-public (vote-for-fruit (fruit (string-ascii 20)))
+    (let (
+        (fruit-list (var-get fruits))
+        (user-vote-count (default-to u0 (get vote-count (map-get? user-votes {user: tx-sender}))))
     )
-    (asserts! (and (not (is-empty title-input))
-                   (not (is-empty description-input))
-                   (> target-input u0)
-                   (> deadline-input u0)) err-invalid-input)
-    (map-set goals goal-id {
-      owner: tx-sender,
-      title: title-input,
-      description: description-input,
-      target: target-input,
-      deadline: deadline-input,
-      progress: u0
-    })
-    (var-set next-goal-id (+ goal-id u1))
-    (ok goal-id)
-  )
-)
-
-;; Update goal progress function
-(define-public (update-goal-progress (goal-id uint) (new-progress uint))
-  (match (map-get? goals goal-id)
-    goal (begin
-      (asserts! (is-eq (get owner goal) tx-sender) err-unauthorized)
-      (ok (map-set goals goal-id (merge goal {progress: new-progress})))
-    )
-    err-not-found
-  )
-)
-
-;; Create a habit function
-(define-public (create-habit (title-input (string-ascii 100)) 
-                             (description-input (string-utf8 500)))
-  (let
-    (
-      (habit-id (var-get next-habit-id))
-    )
-    (asserts! (and (not (is-empty title-input))
-                   (not (is-empty description-input))) err-invalid-input)
-    (map-set habits habit-id {
-      owner: tx-sender,
-      title: title-input,
-      description: description-input,
-      streak: u0,
-      last-check-in: u0
-    })
-    (var-set next-habit-id (+ habit-id u1))
-    (ok habit-id)
-  )
-)
-
-;; Check-in habit function
-(define-public (check-in-habit (habit-id uint))
-  (match (map-get? habits habit-id)
-    habit (begin
-      (asserts! (is-eq (get owner habit) tx-sender) err-unauthorized)
-      (let
-        (
-          (new-streak (+ (get streak habit) u1))
+        (if (and 
+            (is-some (index-of fruit-list fruit))
+            (< user-vote-count MAX_VOTES_PER_USER)
         )
-        (ok (map-set habits habit-id (merge habit {
-          streak: new-streak,
-          last-check-in: burn-block-height
-        })))
-      )
+            (begin
+                (map-set user-votes {user: tx-sender} {vote-count: (+ user-vote-count u1)})
+                (match (map-get? fruit-votes {fruit: fruit})
+                    prev-votes (ok (map-set fruit-votes {fruit: fruit} {votes: (+ (get votes prev-votes) u1)}))
+                    (ok (map-set fruit-votes {fruit: fruit} {votes: u1}))
+                )
+            )
+            (err u0) ;; Return an error if the fruit is not in the list or user has reached max votes
+        )
     )
-    err-not-found
-  )
 )
 
-;; Retrieve the goal by ID
-(define-read-only (get-goal (goal-id uint))
-  (match (map-get? goals goal-id)
-    goal (if (is-eq (get owner goal) tx-sender)
-      (ok goal)
-      err-unauthorized
+;; Read-only function to get votes for a specific fruit
+(define-read-only (get-fruit-votes (fruit (string-ascii 20)))
+    (default-to u0 (get votes (map-get? fruit-votes {fruit: fruit})))
+)
+
+;; Read-only function to get the list of fruits
+(define-read-only (get-fruits)
+    (var-get fruits)
+)
+
+;; Read-only function to get the number of votes cast by a user
+(define-read-only (get-user-vote-count (user principal))
+    (default-to u0 (get vote-count (map-get? user-votes {user: user})))
+)
+
+;; Read-only function to get the current leading fruit
+(define-read-only (get-leading-fruit)
+    (fold check-max-votes (var-get fruits) {fruit: "", votes: u0})
+)
+
+;; Helper function for get-leading-fruit
+(define-private (check-max-votes (fruit (string-ascii 20)) (current-max {fruit: (string-ascii 20), votes: uint}))
+    (let ((fruit-vote-count (get-fruit-votes fruit)))
+        (if (> fruit-vote-count (get votes current-max))
+            {fruit: fruit, votes: fruit-vote-count}
+            current-max
+        )
     )
-    err-not-found
-  )
 )
-
-;; Retrieve the habit by ID
-(define-read-only (get-habit (habit-id uint))
-  (match (map-get? habits habit-id)
-    habit (if (is-eq (get owner habit) tx-sender)
-      (ok habit)
-      err-unauthorized
-    )
-    err-not-found
-  )
-)
-
-;; Initialize contract
-(begin
-  (var-set next-goal-id u0)
-  (var-set next-habit-id u0)
-)
-

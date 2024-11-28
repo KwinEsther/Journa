@@ -1,19 +1,9 @@
-# Journa  
+Enhanced Fruit Voting Smart Contract
+This Clarity smart contract implements an enhanced fruit voting system on the Stacks blockchain. Users can vote for their favorite fruits, with built-in features to prevent vote spamming and track the leading fruit.
 
-**Journa** is a decentralized Collaborative Productivity Journal app built on the Stacks blockchain using Clarity. It allows users to anonymously log their daily productivity achievements or share tips with a community.  
-
----
-
-## Features  
-
-- **Anonymous Journaling**: Write and save daily productivity logs without revealing your identity.  
-- **Community Tips**: Share productivity tips and view advice from others in a public feed.  
-- **Immutable Records**: All logs and tips are stored securely on the Stacks blockchain.  
-
----
-
-## How It Works  
-
-1. **Connect Wallet**: Users log in with their Stacks wallet to access the app.  
-2. **Write Logs/Tips**: Add a daily log or share a productivity tip anonymously.  
-3. **View Feed**: Browse the public feed to learn from the community.
+Features
+Vote for predefined fruits
+Limit of 5 votes per user
+Query vote counts for each fruit
+Get the current leading fruit
+Check individual user's vote count
