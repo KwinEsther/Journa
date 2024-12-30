@@ -1,32 +1,46 @@
-# Journa - Blockchain Voting Contract
+# Journa - Advanced Blockchain Voting System
 
-**Journa** is a voting contract deployed on the Stacks blockchain using the Clarity smart contract language. It allows users to vote for their favorite fruits, track votes, and see the leading fruit in real time.
+## Overview
+Journa is a sophisticated voting system built on the Stacks blockchain using Clarity smart contracts. It allows for secure, transparent, and flexible voting on various topics, with advanced features like vote delegation and time-limited voting periods.
 
 ## Features
+- Multi-topic voting system
+- Vote delegation
+- Time-limited voting periods
+- Weighted voting based on token balance
+- Comprehensive security measures
+- Extensive test suite
 
-- Users can vote for fruits from a predefined list.
-- Each user can cast a maximum of 5 votes.
-- Track votes for each fruit.
-- View the current vote count for any fruit.
-- See how many votes a user has cast.
-- Get the current leading fruit based on votes.
+## Smart Contract Functions
 
-## Components
+### Public Functions
+- `create-topic`: Create a new voting topic
+- `cast-vote`: Cast a vote on a topic
+- `delegate-vote`: Delegate voting power to another user
+- `end-voting`: End the voting period for a topic (admin only)
 
-- **fruits**: A predefined list of fruits users can vote for (e.g., apple, banana, cherry).
-- **fruit-votes**: A map storing the total vote count for each fruit.
-- **user-votes**: A map to track the number of votes a user has cast.
-- **MAX_VOTES_PER_USER**: A constant that limits each user to 5 votes.
-- **vote-for-fruit**: A public function that allows users to vote for a fruit.
-- **get-fruit-votes**: A read-only function that returns the total votes for a specified fruit.
-- **get-fruits**: A read-only function that returns the list of available fruits.
-- **get-user-vote-count**: A read-only function that returns the number of votes cast by a specific user.
-- **get-leading-fruit**: A read-only function that returns the fruit with the most votes.
+### Read-Only Functions
+- `get-topic-votes`: Get the current votes for a topic
+- `get-user-voting-power`: Get a user's current voting power
+- `get-topic-status`: Check if a topic's voting period is active
+- `get-leading-option`: Get the current leading option for a topic
 
-## Contract Code Overview
+## Security Features
+- Access control for admin functions
+- Vote verification to prevent double voting
+- Time-locked voting periods
+- Checks for delegate cycles
 
-### `fruits` (Data Variable)
-The list of fruits available for voting. It contains a maximum of 10 fruit names, each up to 20 characters.
+## Testing
+This project includes a comprehensive test suite using Clarinet. To run the tests:
 
-```clarity
-(define-data-var fruits (list 10 (string-ascii 20)) (list "apple" "banana" "cherry" "date" "elderberry"))
+1. Install Clarinet
+2. Navigate to the project directory
+3. Run `clarinet test`
+
+## Usage
+1. Deploy the contract to the Stacks blockchain
+2. Use a Stacks wallet to interact with the contract functions
+3. Create voting topics using `create-topic`
+4. Users can cast votes using `cast-vote` or delegate their voting power
+5. View results using the read-only functions
