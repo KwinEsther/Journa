@@ -1,63 +1,161 @@
-;; Define the list of fruits
-(define-data-var fruits (list 10 (string-ascii 20)) (list "apple" "banana" "cherry" "date" "elderberry"))
+;; Journa - Advanced Blockchain Voting System
 
-;; Define a map to store votes for each fruit
-(define-map fruit-votes {fruit: (string-ascii 20)} {votes: uint})
+;; Constants
+(define-constant ERR_UNAUTHORIZED (err u100))
+(define-constant ERR_TOPIC_EXISTS (err u101))
+(define-constant ERR_TOPIC_NOT_FOUND (err u102))
+(define-constant ERR_VOTING_ENDED (err u103))
+(define-constant ERR_ALREADY_VOTED (err u104))
+(define-constant ERR_INVALID_VOTE (err u105))
+(define-constant ERR_SELF_DELEGATION (err u106))
+(define-constant ERR_DELEGATION_CYCLE (err u107))
 
-;; Define a constant for the maximum allowed votes per user
-(define-constant MAX_VOTES_PER_USER u5)
+;; Data Variables
+(define-data-var admin principal tx-sender)
 
-;; Define a map to track votes per user
-(define-map user-votes {user: principal} {vote-count: uint})
-
-;; Function to vote for a fruit
-(define-public (vote-for-fruit (fruit (string-ascii 20)))
-    (let (
-        (fruit-list (var-get fruits))
-        (user-vote-count (default-to u0 (get vote-count (map-get? user-votes {user: tx-sender}))))
-    )
-        (if (and 
-            (is-some (index-of fruit-list fruit))
-            (< user-vote-count MAX_VOTES_PER_USER)
-        )
-            (begin
-                (map-set user-votes {user: tx-sender} {vote-count: (+ user-vote-count u1)})
-                (match (map-get? fruit-votes {fruit: fruit})
-                    prev-votes (ok (map-set fruit-votes {fruit: fruit} {votes: (+ (get votes prev-votes) u1)}))
-                    (ok (map-set fruit-votes {fruit: fruit} {votes: u1}))
-                )
-            )
-            (err u0) ;; Return an error if the fruit is not in the list or user has reached max votes
-        )
-    )
+;; Maps
+(define-map Topics 
+  { topic-id: uint } 
+  { 
+    name: (string-ascii 50), 
+    options: (list 10 (string-ascii 20)),
+    end-block: uint,
+    total-votes: uint
+  }
 )
 
-;; Read-only function to get votes for a specific fruit
-(define-read-only (get-fruit-votes (fruit (string-ascii 20)))
-    (default-to u0 (get votes (map-get? fruit-votes {fruit: fruit})))
+(define-map Votes 
+  { topic-id: uint, user: principal } 
+  { option: (string-ascii 20), weight: uint }
 )
 
-;; Read-only function to get the list of fruits
-(define-read-only (get-fruits)
-    (var-get fruits)
+(define-map UserVotingPower 
+  { user: principal } 
+  { power: uint }
 )
 
-;; Read-only function to get the number of votes cast by a user
-(define-read-only (get-user-vote-count (user principal))
-    (default-to u0 (get vote-count (map-get? user-votes {user: user})))
+(define-map Delegations
+  { delegator: principal }
+  { delegate: principal }
 )
 
-;; Read-only function to get the current leading fruit
-(define-read-only (get-leading-fruit)
-    (fold check-max-votes (var-get fruits) {fruit: "", votes: u0})
+;; Private Functions
+(define-private (is-admin)
+  (is-eq tx-sender (var-get admin))
 )
 
-;; Helper function for get-leading-fruit
-(define-private (check-max-votes (fruit (string-ascii 20)) (current-max {fruit: (string-ascii 20), votes: uint}))
-    (let ((fruit-vote-count (get-fruit-votes fruit)))
-        (if (> fruit-vote-count (get votes current-max))
-            {fruit: fruit, votes: fruit-vote-count}
-            current-max
-        )
-    )
+(define-private (check-topic-exists (topic-id uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic true
+    false
+  )
+)
+
+(define-private (check-voting-active (topic-id uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic (< block-height (get end-block topic))
+    false
+  )
+)
+
+(define-private (get-voting-power (user principal))
+  (default-to u1 (get power (map-get? UserVotingPower { user: user })))
+)
+
+(define-private (update-vote-count (topic-id uint) (weight uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic (map-set Topics 
+            { topic-id: topic-id }
+            (merge topic { total-votes: (+ (get total-votes topic) weight) }))
+    false
+  )
+)
+
+;; Public Functions
+(define-public (create-topic (name (string-ascii 50)) (options (list 10 (string-ascii 20))) (duration uint))
+  (let ((topic-id (+ u1 (default-to u0 (get total-votes (map-get? Topics { topic-id: u0 }))))))
+    (if (is-admin)
+      (if (check-topic-exists topic-id)
+        ERR_TOPIC_EXISTS
+        (begin
+          (map-set Topics 
+            { topic-id: topic-id }
+            { 
+              name: name, 
+              options: options,
+              end-block: (+ block-height duration),
+              total-votes: u0
+            })
+          (ok topic-id)))
+      ERR_UNAUTHORIZED))
+)
+
+(define-public (cast-vote (topic-id uint) (option (string-ascii 20)))
+  (let ((user-power (get-voting-power tx-sender)))
+    (if (and (check-topic-exists topic-id) (check-voting-active topic-id))
+      (match (map-get? Votes { topic-id: topic-id, user: tx-sender })
+        prev-vote ERR_ALREADY_VOTED
+        (begin
+          (map-set Votes 
+            { topic-id: topic-id, user: tx-sender }
+            { option: option, weight: user-power })
+          (update-vote-count topic-id user-power)
+          (ok true)))
+      ERR_INVALID_VOTE))
+)
+
+(define-public (delegate-vote (delegate principal))
+  (if (is-eq tx-sender delegate)
+    ERR_SELF_DELEGATION
+    (if (is-some (map-get? Delegations { delegator: delegate }))
+      ERR_DELEGATION_CYCLE
+      (begin
+        (map-set Delegations { delegator: tx-sender } { delegate: delegate })
+        (map-set UserVotingPower 
+          { user: delegate }
+          { power: (+ (get-voting-power delegate) (get-voting-power tx-sender)) })
+        (map-delete UserVotingPower { user: tx-sender })
+        (ok true))))
+)
+
+(define-public (end-voting (topic-id uint))
+  (if (is-admin)
+    (match (map-get? Topics { topic-id: topic-id })
+      topic (begin
+              (map-set Topics 
+                { topic-id: topic-id }
+                (merge topic { end-block: block-height }))
+              (ok true))
+      ERR_TOPIC_NOT_FOUND)
+    ERR_UNAUTHORIZED)
+)
+
+;; Read-Only Functions
+(define-read-only (get-topic-votes (topic-id uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic (ok (get total-votes topic))
+    (err ERR_TOPIC_NOT_FOUND))
+)
+
+(define-read-only (get-user-voting-power (user principal))
+  (ok (get-voting-power user))
+)
+
+(define-read-only (get-topic-status (topic-id uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic (ok (< block-height (get end-block topic)))
+    (err ERR_TOPIC_NOT_FOUND))
+)
+
+(define-read-only (get-leading-option (topic-id uint))
+  (match (map-get? Topics { topic-id: topic-id })
+    topic (ok (fold check-max-votes (get options topic) { option: "", votes: u0 }))
+    (err ERR_TOPIC_NOT_FOUND))
+)
+
+(define-private (check-max-votes (option (string-ascii 20)) (current-max { option: (string-ascii 20), votes: uint }))
+  (let ((option-votes (default-to u0 (get weight (map-get? Votes { topic-id: topic-id, user: tx-sender })))))
+    (if (> option-votes (get votes current-max))
+      { option: option, votes: option-votes }
+      current-max))
 )
