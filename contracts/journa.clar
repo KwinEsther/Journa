@@ -10,6 +10,8 @@
 (define-constant ERR_SELF_DELEGATION (err u106))
 (define-constant ERR_DELEGATION_CYCLE (err u107))
 (define-constant ERR_INVALID_INPUT (err u108))
+(define-constant ERR_NOT_ENOUGH_TOKENS (err u109))
+(define-constant ERR_INSUFFICIENT_SIGNATURES (err u110))
 
 ;; Data Variables
 (define-data-var admin principal tx-sender)
@@ -52,9 +54,8 @@
 
 (define-private (check-voting-active (topic-id uint))
   (match (map-get? Topics { topic-id: topic-id })
-    topic (< (var-get time-counter) (get end-time topic))
-    false
-  )
+    topic-data (< (var-get time-counter) (get end-time topic-data))
+    false)
 )
 
 (define-private (get-voting-power (user principal))
@@ -63,11 +64,10 @@
 
 (define-private (update-vote-count (topic-id uint) (weight uint))
   (match (map-get? Topics { topic-id: topic-id })
-    topic (map-set Topics 
-            { topic-id: topic-id }
-            (merge topic { total-votes: (+ (get total-votes topic) weight) }))
-    false
-  )
+    topic-data (map-set Topics 
+                { topic-id: topic-id }
+                (merge topic-data { total-votes: (+ (get total-votes topic-data) weight) }))
+    false)
 )
 
 (define-private (validate-string (input (string-ascii 50)))
@@ -80,6 +80,10 @@
     (<= (len options) u10)
     (fold and (map validate-string options) true)
   )
+)
+
+(define-private (validate-token-based-voting (user principal))
+  (> (get-voting-power user) u0)
 )
 
 ;; Public Functions
@@ -102,8 +106,7 @@
               options: options,
               end-time: (+ current-time duration),
               total-votes: u0
-            }))
-    )
+            })))
   )
 )
 
@@ -116,6 +119,7 @@
     (asserts! (check-voting-active topic-id) ERR_VOTING_ENDED)
     (asserts! (is-some (index-of (get options topic) option)) ERR_INVALID_VOTE)
     (asserts! (is-none (map-get? Votes { topic-id: topic-id, user: tx-sender })) ERR_ALREADY_VOTED)
+    (asserts! (validate-token-based-voting tx-sender) ERR_NOT_ENOUGH_TOKENS)
     (map-set Votes 
       { topic-id: topic-id, user: tx-sender }
       { option: option, weight: user-power })
@@ -174,4 +178,3 @@
 (define-read-only (get-current-time)
   (ok (var-get time-counter))
 )
-
