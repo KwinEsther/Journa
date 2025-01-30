@@ -14,7 +14,7 @@
 (define-constant ERR_INSUFFICIENT_SIGNATURES (err u110))
 
 ;; Data Variables
-(define-data-var admin (map principal bool) ())
+(define-data-var admin principal tx-sender)
 (define-data-var time-counter uint u0)
 
 ;; Maps
@@ -45,7 +45,7 @@
 
 ;; Private Functions
 (define-private (is-admin)
-  (is-some (map-get? admin tx-sender))
+  (is-eq tx-sender (var-get admin))
 )
 
 (define-private (check-topic-exists (topic-id uint))
@@ -54,9 +54,8 @@
 
 (define-private (check-voting-active (topic-id uint))
   (match (map-get? Topics { topic-id: topic-id })
-    topic (< (var-get time-counter) (get end-time topic))
-    false
-  )
+    topic-data (< (var-get time-counter) (get end-time topic-data))
+    false)
 )
 
 (define-private (get-voting-power (user principal))
@@ -65,16 +64,17 @@
 
 (define-private (update-vote-count (topic-id uint) (weight uint))
   (match (map-get? Topics { topic-id: topic-id })
-    topic (map-set Topics 
-            { topic-id: topic-id }
-            (merge topic { total-votes: (+ (get total-votes topic) weight) })))
+    topic-data (map-set Topics 
+                { topic-id: topic-id }
+                (merge topic-data { total-votes: (+ (get total-votes topic-data) weight) }))
+    false)
 )
 
 (define-private (validate-string (input (string-ascii 50)))
   (and (>= (len input) u1) (<= (len input) u50))
 )
 
-(define-private (validate-options (options (list 10 (string-ascii 20)))))
+(define-private (validate-options (options (list 10 (string-ascii 20))))
   (and 
     (>= (len options) u2)
     (<= (len options) u10)
@@ -83,10 +83,7 @@
 )
 
 (define-private (validate-token-based-voting (user principal))
-  (let ((user-power (get-voting-power user)))
-    (asserts! (> user-power u0) ERR_NOT_ENOUGH_TOKENS)
-    (ok true)
-  )
+  (> (get-voting-power user) u0)
 )
 
 ;; Public Functions
@@ -98,7 +95,7 @@
     (asserts! (> duration u0) ERR_INVALID_INPUT)
     (let 
       (
-        (topic-id (+ u1 (default-to u0 (get total-votes (map-get? Topics { topic-id: u0 })))) )
+        (topic-id (+ u1 (default-to u0 (get total-votes (map-get? Topics { topic-id: u0 })))))
         (current-time (var-get time-counter))
       )
       (asserts! (not (check-topic-exists topic-id)) ERR_TOPIC_EXISTS)
@@ -109,7 +106,8 @@
               options: options,
               end-time: (+ current-time duration),
               total-votes: u0
-            }))))
+            })))
+  )
 )
 
 (define-public (cast-vote (topic-id uint) (option (string-ascii 20)))
