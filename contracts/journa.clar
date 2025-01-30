@@ -10,9 +10,11 @@
 (define-constant ERR_SELF_DELEGATION (err u106))
 (define-constant ERR_DELEGATION_CYCLE (err u107))
 (define-constant ERR_INVALID_INPUT (err u108))
+(define-constant ERR_NOT_ENOUGH_TOKENS (err u109))
+(define-constant ERR_INSUFFICIENT_SIGNATURES (err u110))
 
 ;; Data Variables
-(define-data-var admin principal tx-sender)
+(define-data-var admin (list principal) [])
 (define-data-var time-counter uint u0)
 
 ;; Maps
@@ -43,7 +45,7 @@
 
 ;; Private Functions
 (define-private (is-admin)
-  (is-eq tx-sender (var-get admin))
+  (contains? (var-get admin) tx-sender)
 )
 
 (define-private (check-topic-exists (topic-id uint))
@@ -82,6 +84,13 @@
   )
 )
 
+(define-private (validate-token-based-voting (user principal))
+  (let ((user-power (get-voting-power user)))
+    (asserts! (> user-power u0) ERR_NOT_ENOUGH_TOKENS)
+    (ok true)
+  )
+)
+
 ;; Public Functions
 (define-public (create-topic (name (string-ascii 50)) (options (list 10 (string-ascii 20))) (duration uint))
   (begin
@@ -116,6 +125,7 @@
     (asserts! (check-voting-active topic-id) ERR_VOTING_ENDED)
     (asserts! (is-some (index-of (get options topic) option)) ERR_INVALID_VOTE)
     (asserts! (is-none (map-get? Votes { topic-id: topic-id, user: tx-sender })) ERR_ALREADY_VOTED)
+    (asserts! (validate-token-based-voting tx-sender) ERR_NOT_ENOUGH_TOKENS)
     (map-set Votes 
       { topic-id: topic-id, user: tx-sender }
       { option: option, weight: user-power })
@@ -174,4 +184,3 @@
 (define-read-only (get-current-time)
   (ok (var-get time-counter))
 )
-
