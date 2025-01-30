@@ -14,7 +14,7 @@
 (define-constant ERR_INSUFFICIENT_SIGNATURES (err u110))
 
 ;; Data Variables
-(define-data-var admin (map principal bool) {})
+(define-data-var admin (map principal bool) ())
 (define-data-var time-counter uint u0)
 
 ;; Maps
@@ -67,16 +67,14 @@
   (match (map-get? Topics { topic-id: topic-id })
     topic (map-set Topics 
             { topic-id: topic-id }
-            (merge topic { total-votes: (+ (get total-votes topic) weight) }))
-    false
-  )
+            (merge topic { total-votes: (+ (get total-votes topic) weight) })))
 )
 
 (define-private (validate-string (input (string-ascii 50)))
   (and (>= (len input) u1) (<= (len input) u50))
 )
 
-(define-private (validate-options (options (list 10 (string-ascii 20))))
+(define-private (validate-options (options (list 10 (string-ascii 20)))))
   (and 
     (>= (len options) u2)
     (<= (len options) u10)
@@ -100,7 +98,7 @@
     (asserts! (> duration u0) ERR_INVALID_INPUT)
     (let 
       (
-        (topic-id (+ u1 (default-to u0 (get total-votes (map-get? Topics { topic-id: u0 })))))
+        (topic-id (+ u1 (default-to u0 (get total-votes (map-get? Topics { topic-id: u0 })))) )
         (current-time (var-get time-counter))
       )
       (asserts! (not (check-topic-exists topic-id)) ERR_TOPIC_EXISTS)
@@ -111,9 +109,7 @@
               options: options,
               end-time: (+ current-time duration),
               total-votes: u0
-            }))
-    )
-  )
+            }))))
 )
 
 (define-public (cast-vote (topic-id uint) (option (string-ascii 20)))
