@@ -14,7 +14,7 @@
 (define-constant ERR_INSUFFICIENT_SIGNATURES (err u110))
 
 ;; Data Variables
-(define-data-var admin (list principal) [])
+(define-data-var admin (map principal bool) {})
 (define-data-var time-counter uint u0)
 
 ;; Maps
@@ -45,7 +45,7 @@
 
 ;; Private Functions
 (define-private (is-admin)
-  (contains? (var-get admin) tx-sender)
+  (is-some (map-get? admin tx-sender))
 )
 
 (define-private (check-topic-exists (topic-id uint))
